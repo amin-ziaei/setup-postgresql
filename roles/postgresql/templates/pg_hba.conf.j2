@@ -1,0 +1,11 @@
+# pg_hba.conf — Managed by Ansible — DO NOT EDIT MANUALLY
+# Host: {{ inventory_hostname }}
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+{% for entry in postgresql_hba_entries %}
+{% if entry.type == 'local' %}
+{{ "%-8s" | format(entry.type) }}  {{ "%-15s" | format(entry.database) }}  {{ "%-15s" | format(entry.user) }}                                  {{ entry.method }}
+{% else %}
+{{ "%-8s" | format(entry.type) }}  {{ "%-15s" | format(entry.database) }}  {{ "%-15s" | format(entry.user) }}  {{ "%-23s" | format(entry.address) }}  {{ entry.method }}
+{% endif %}
+{% endfor %}

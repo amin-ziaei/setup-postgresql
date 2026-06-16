@@ -1,0 +1,12 @@
+---
+- name: Import install tasks
+  ansible.builtin.import_tasks: install.yml
+  tags: [postgresql, install]
+
+- name: Import configure tasks
+  ansible.builtin.import_tasks: configure.yml
+  tags: [postgresql, configure]
+
+- name: Import users and databases tasks
+  ansible.builtin.import_tasks: users_and_dbs.yml
+  tags: [postgresql, users, databases]

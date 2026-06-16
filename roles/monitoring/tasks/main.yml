@@ -1,0 +1,9 @@
+---
+- name: Import postgres_exporter tasks
+  ansible.builtin.import_tasks: postgres_exporter.yml
+  tags: [monitoring]
+
+- name: Import firewall tasks
+  ansible.builtin.import_tasks: firewall.yml
+  tags: [monitoring]
+  when: monitoring_open_firewall | bool

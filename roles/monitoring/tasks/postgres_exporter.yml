@@ -1,0 +1,118 @@
+---
+- name: Create postgres_exporter group
+  ansible.builtin.group:
+    name: "{{ postgres_exporter_group }}"
+    system: true
+    state: present
+  tags: [monitoring]
+
+- name: Create postgres_exporter user
+  ansible.builtin.user:
+    name: "{{ postgres_exporter_user }}"
+    group: "{{ postgres_exporter_group }}"
+    shell: /usr/sbin/nologin
+    system: true
+    create_home: false
+    state: present
+  tags: [monitoring]
+
+- name: Check current postgres_exporter version
+  ansible.builtin.command: "{{ postgres_exporter_install_dir }}/postgres_exporter --version"
+  register: _pge_installed_version
+  changed_when: false
+  failed_when: false
+  tags: [monitoring]
+
+- name: Download postgres_exporter archive
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus-community/postgres_exporter/releases/download/v{{ postgres_exporter_version }}/postgres_exporter-{{ postgres_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/postgres_exporter-{{ postgres_exporter_version }}.tar.gz"
+    mode: "0644"
+  when: postgres_exporter_version not in (_pge_installed_version.stdout | default(''))
+  tags: [monitoring]
+
+- name: Extract postgres_exporter
+  ansible.builtin.unarchive:
+    src: "/tmp/postgres_exporter-{{ postgres_exporter_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+  when: postgres_exporter_version not in (_pge_installed_version.stdout | default(''))
+  tags: [monitoring]
+
+- name: Install postgres_exporter binary
+  ansible.builtin.copy:
+    src: "/tmp/postgres_exporter-{{ postgres_exporter_version }}.linux-amd64/postgres_exporter"
+    dest: "{{ postgres_exporter_install_dir }}/postgres_exporter"
+    owner: root
+    group: root
+    mode: "0755"
+    remote_src: true
+  when: postgres_exporter_version not in (_pge_installed_version.stdout | default(''))
+  notify: Restart postgres_exporter
+  tags: [monitoring]
+
+- name: Validate monitoring PostgreSQL user name
+  ansible.builtin.assert:
+    that:
+      - postgres_monitor_user != 'pg_monitor'
+    fail_msg: "postgres_monitor_user must not be 'pg_monitor' because it is a reserved built-in PostgreSQL role. Use a dedicated user such as 'postgres_exporter_monitor'."
+  tags: [monitoring]
+
+- name: Create monitoring PostgreSQL user
+  community.postgresql.postgresql_user:
+    name: "{{ postgres_monitor_user }}"
+    password: "{{ postgres_monitor_password }}"
+    role_attr_flags: "NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+  tags: [monitoring]
+
+- name: Grant pg_monitor role to monitoring user
+  community.postgresql.postgresql_membership:
+    groups: pg_monitor
+    target_roles: "{{ postgres_monitor_user }}"
+    state: present
+  become: true
+  become_user: postgres
+  tags: [monitoring]
+
+- name: Deploy postgres_exporter env file
+  ansible.builtin.template:
+    src: postgres_exporter.env.j2
+    dest: /etc/postgres_exporter.env
+    owner: "{{ postgres_exporter_user }}"
+    group: "{{ postgres_exporter_group }}"
+    mode: "0640"
+  notify: Restart postgres_exporter
+  tags: [monitoring]
+
+- name: Deploy postgres_exporter config file
+  ansible.builtin.template:
+    src: postgres_exporter.yml.j2
+    dest: "{{ postgres_exporter_config_file }}"
+    owner: "{{ postgres_exporter_user }}"
+    group: "{{ postgres_exporter_group }}"
+    mode: "0640"
+  notify: Restart postgres_exporter
+  tags: [monitoring]
+
+- name: Deploy postgres_exporter systemd unit
+  ansible.builtin.template:
+    src: postgres_exporter.service.j2
+    dest: /etc/systemd/system/postgres_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart postgres_exporter
+  tags: [monitoring]
+
+- name: Enable and start postgres_exporter
+  ansible.builtin.service:
+    name: postgres_exporter
+    state: started
+    enabled: true
+  tags: [monitoring]

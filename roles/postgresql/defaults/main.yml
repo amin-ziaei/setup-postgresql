@@ -1,0 +1,101 @@
+---
+# PostgreSQL version
+postgresql_version: "18"
+
+# Installation
+postgresql_apt_key_dir: /usr/share/postgresql-common/pgdg
+postgresql_apt_key_path: "{{ postgresql_apt_key_dir }}/apt.postgresql.org.asc"
+postgresql_apt_repository_file: /etc/apt/sources.list.d/pgdg.sources
+postgresql_apt_repository_url: https://apt.postgresql.org/pub/repos/apt
+postgresql_apt_repository_types: deb deb-src
+postgresql_apt_repository_suite: "{{ ansible_distribution_release }}-pgdg"
+postgresql_apt_repository_architecture: amd64
+postgresql_apt_repository_components: main
+postgresql_packages:
+  - "postgresql-{{ postgresql_version }}"
+  - "postgresql-contrib-{{ postgresql_version }}"
+  - python3-psycopg2
+  - acl
+
+# Service
+postgresql_service_name: postgresql
+
+# Directories
+postgresql_data_dir: "/var/lib/postgresql/{{ postgresql_version }}/main"
+postgresql_conf_dir: "/etc/postgresql/{{ postgresql_version }}/main"
+postgresql_log_dir: "/var/log/postgresql"
+postgresql_hba_file: "{{ postgresql_conf_dir }}/pg_hba.conf"
+postgresql_ident_file: "{{ postgresql_conf_dir }}/pg_ident.conf"
+postgresql_external_pid_file: "/var/run/postgresql/{{ postgresql_version }}-main.pid"
+postgresql_unix_socket_directories: /var/run/postgresql
+
+# Connection
+postgresql_listen_addresses: "*"   # Use localhost for local-only access
+postgresql_port: 5432
+postgresql_max_connections: 100
+
+# Memory (tune based on your server RAM)
+postgresql_shared_buffers: "256MB"
+postgresql_effective_cache_size: "768MB"
+postgresql_maintenance_work_mem: "64MB"
+postgresql_work_mem: "4MB"
+postgresql_wal_buffers: "16MB"
+
+# Logging
+postgresql_log_min_duration_statement: 1000   # log queries slower than 1s (ms)
+postgresql_log_connections: "off"
+postgresql_log_disconnections: "off"
+postgresql_log_line_prefix: "%m [%p] %q%u@%d "
+postgresql_logging_collector: "on"
+postgresql_log_filename: "postgresql-%Y-%m-%d.log"
+postgresql_log_rotation_age: "1d"
+postgresql_log_rotation_size: 0
+
+# Replication / WAL
+postgresql_wal_level: "replica"
+postgresql_max_wal_senders: 3
+postgresql_wal_keep_size: "64MB"
+
+# Locale / Encoding
+postgresql_locale: "en_US.UTF-8"
+postgresql_encoding: "UTF-8"
+
+# pg_hba entries
+# type  database  user  address         method
+postgresql_hba_entries:
+  - { type: local, database: all,       user: postgres,    method: peer }
+  - { type: local, database: all,       user: all,         method: md5  }
+  - { type: host,  database: all,       user: all,         address: "127.0.0.1/32", method: md5 }
+  - { type: host,  database: all,       user: all,         address: "::1/128",      method: md5 }
+
+# Application database/user variables
+postgresql_app_database_name: myapp_db
+postgresql_app_database_user: myapp_user
+postgresql_app_database_password: "ChangeMe_AppPassword!"
+
+# Databases to create
+postgresql_databases:
+  - name: "{{ postgresql_app_database_name }}"
+    encoding: UTF-8
+    lc_collate: "en_US.UTF-8"
+    lc_ctype: "en_US.UTF-8"
+    owner: "{{ postgresql_app_database_user }}"
+
+# Users to create
+postgresql_users:
+  - name: "{{ postgresql_app_database_user }}"
+    password: "{{ postgresql_app_database_password }}"
+    role_attr_flags: "NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+    db: "{{ postgresql_app_database_name }}"
+
+# Extensions to enable (per database)
+postgresql_extensions:
+  - db: "{{ postgresql_app_database_name }}"
+    name: pg_stat_statements
+
+# Extra postgresql.conf lines (free-form)
+postgresql_extra_conf: []
+# Example:
+# postgresql_extra_conf:
+#   - "idle_in_transaction_session_timeout = 30000"
+#   - "statement_timeout = 60000"

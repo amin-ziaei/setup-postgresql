@@ -1,0 +1,20 @@
+[Unit]
+Description=Prometheus PostgreSQL Exporter
+Documentation=https://github.com/prometheus-community/postgres_exporter
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+User={{ postgres_exporter_user }}
+Group={{ postgres_exporter_group }}
+Type=simple
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/postgres_exporter.env
+ExecStart={{ postgres_exporter_install_dir }}/postgres_exporter \
+  --config.file={{ postgres_exporter_config_file }} \
+  --web.listen-address={{ postgres_exporter_web_listen_address }}
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+---
+- name: Allow postgres_exporter port via UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ postgres_exporter_port }}"
+    proto: tcp
+    src: "{{ monitoring_allowed_cidr }}"
+    comment: "Prometheus postgres_exporter"
+  tags: [monitoring]
